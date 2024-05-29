@@ -1,27 +1,43 @@
 package sbu.cs.CalculatePi;
 
+import java.math.BigDecimal;
+import java.util.concurrent.*;
+
 public class PiCalculator {
 
-    /**
-     * Calculate pi and represent it as a BigDecimal object with the given floating point number (digits after . )
-     * There are several algorithms designed for calculating pi, it's up to you to decide which one to implement.
-     Experiment with different algorithms to find accurate results.
+    public String calculate(int digits) {
+        BigDecimal pi = BigDecimal.ZERO;
+        int threads = Runtime.getRuntime().availableProcessors();
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        CompletionService<BigDecimal> completionService = new ExecutorCompletionService<>(executor);
 
-     * You must design a multithreaded program to calculate pi. Creating a thread pool is recommended.
-     * Create as many classes and threads as you need.
-     * Your code must pass all of the test cases provided in the test folder.
+        for (int i = 0; i < digits; i++) {
+            final int k = i;
+            completionService.submit(() -> calculatePiTerm(k, digits));
+        }
+        executor.shutdown();
 
-     * @param floatingPoint the exact number of digits after the floating point
-     * @return pi in string format (the string representation of the BigDecimal object)
-     */
+        for (int i = 0; i < digits; i++) {
+            try {
+                pi = pi.add(completionService.take().get());
+            } catch (InterruptedException | ExecutionException e) {
+                e.printStackTrace();
+            }
+        }
 
-    public String calculate(int floatingPoint)
-    {
-        // TODO
-        return null;
+        return pi.setScale(digits, BigDecimal.ROUND_HALF_UP).toString();
+    }
+
+    private BigDecimal calculatePiTerm(int k, int digits) {
+        BigDecimal a = BigDecimal.valueOf(16).pow(k).multiply(BigDecimal.valueOf(4).divide(BigDecimal.valueOf(8 * k + 1), digits, BigDecimal.ROUND_HALF_UP));
+        BigDecimal b = BigDecimal.valueOf(16).pow(k).multiply(BigDecimal.valueOf(2).divide(BigDecimal.valueOf(8 * k + 4), digits, BigDecimal.ROUND_HALF_UP));
+        BigDecimal c = BigDecimal.valueOf(16).pow(k).multiply(BigDecimal.valueOf(1).divide(BigDecimal.valueOf(8 * k + 5), digits, BigDecimal.ROUND_HALF_UP));
+        BigDecimal d = BigDecimal.valueOf(16).pow(k).multiply(BigDecimal.valueOf(1).divide(BigDecimal.valueOf(8 * k + 6), digits, BigDecimal.ROUND_HALF_UP));
+        return a.subtract(b).subtract(c).subtract(d).multiply(BigDecimal.valueOf(1).divide(BigDecimal.valueOf(16).pow(k), digits, BigDecimal.ROUND_HALF_UP));
     }
 
     public static void main(String[] args) {
-        // Use the main function to test the code yourself
+        PiCalculator piCalculator = new PiCalculator();
+        System.out.println("Pi: " + piCalculator.calculate(1000));
     }
 }

@@ -1,12 +1,21 @@
 package sbu.cs.Semaphore;
 
-public class Resource {
+import java.util.concurrent.Semaphore;
 
-    public static void accessResource() {
+public class Resource {
+    private static final Semaphore semaphore = new Semaphore(2, true); // Fair semaphore to ensure FIFO
+
+    public static void accessResource(String threadName) {
         try {
-            Thread.sleep(100);
+            semaphore.acquire();
+            System.out.println(threadName + " entered the critical section at " + System.currentTimeMillis());
+            Thread.sleep(100); // Simulating resource access
         } catch (InterruptedException e) {
-            e.printStackTrace();
+            Thread.currentThread().interrupt(); // set the interrupt flag
+            System.out.println("Interrupted: " + threadName);
+        } finally {
+            semaphore.release();
+            System.out.println(threadName + " exiting the critical section at " + System.currentTimeMillis());
         }
     }
 }
