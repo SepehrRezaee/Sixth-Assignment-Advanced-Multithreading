@@ -1,6 +1,8 @@
 package sbu.cs.CalculatePi;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.concurrent.*;
 
 public class PiCalculator {
@@ -10,30 +12,43 @@ public class PiCalculator {
         int threads = Runtime.getRuntime().availableProcessors();
         ExecutorService executor = Executors.newFixedThreadPool(threads);
         CompletionService<BigDecimal> completionService = new ExecutorCompletionService<>(executor);
+        MathContext mc = new MathContext(digits + 2, RoundingMode.HALF_UP);
 
-        for (int i = 0; i < digits; i++) {
+        int terms = Math.max(digits * 10, 1000);
+        for (int i = 0; i < terms; i++) {
             final int k = i;
-            completionService.submit(() -> calculatePiTerm(k, digits));
+            completionService.submit(() -> calculatePiTerm(k, mc));
         }
         executor.shutdown();
 
-        for (int i = 0; i < digits; i++) {
+        for (int i = 0; i < terms; i++) {
             try {
-                pi = pi.add(completionService.take().get());
+                pi = pi.add(completionService.take().get(), mc);
             } catch (InterruptedException | ExecutionException e) {
                 e.printStackTrace();
             }
         }
 
-        return pi.setScale(digits, BigDecimal.ROUND_HALF_UP).toString();
+        return formatResult(pi, digits);
     }
 
-    private BigDecimal calculatePiTerm(int k, int digits) {
-        BigDecimal a = BigDecimal.valueOf(16).pow(k).multiply(BigDecimal.valueOf(4).divide(BigDecimal.valueOf(8 * k + 1), digits, BigDecimal.ROUND_HALF_UP));
-        BigDecimal b = BigDecimal.valueOf(16).pow(k).multiply(BigDecimal.valueOf(2).divide(BigDecimal.valueOf(8 * k + 4), digits, BigDecimal.ROUND_HALF_UP));
-        BigDecimal c = BigDecimal.valueOf(16).pow(k).multiply(BigDecimal.valueOf(1).divide(BigDecimal.valueOf(8 * k + 5), digits, BigDecimal.ROUND_HALF_UP));
-        BigDecimal d = BigDecimal.valueOf(16).pow(k).multiply(BigDecimal.valueOf(1).divide(BigDecimal.valueOf(8 * k + 6), digits, BigDecimal.ROUND_HALF_UP));
-        return a.subtract(b).subtract(c).subtract(d).multiply(BigDecimal.valueOf(1).divide(BigDecimal.valueOf(16).pow(k), digits, BigDecimal.ROUND_HALF_UP));
+    private BigDecimal calculatePiTerm(int k, MathContext mc) {
+        BigDecimal sixteen = new BigDecimal("16", mc);
+        BigDecimal eightK = new BigDecimal(8 * k, mc);
+
+        BigDecimal term = BigDecimal.ONE.divide(sixteen.pow(k, mc), mc);
+        BigDecimal sum = BigDecimal.ZERO;
+
+        sum = sum.add(BigDecimal.valueOf(4).divide(eightK.add(BigDecimal.ONE, mc), mc));
+        sum = sum.subtract(BigDecimal.valueOf(2).divide(eightK.add(BigDecimal.valueOf(4), mc), mc));
+        sum = sum.subtract(BigDecimal.ONE.divide(eightK.add(BigDecimal.valueOf(5), mc), mc));
+        sum = sum.subtract(BigDecimal.ONE.divide(eightK.add(BigDecimal.valueOf(6), mc), mc));
+
+        return term.multiply(sum, mc);
+    }
+
+    private String formatResult(BigDecimal pi, int digits) {
+        return pi.round(new MathContext(digits + 1, RoundingMode.HALF_UP)).toString();
     }
 
     public static void main(String[] args) {
